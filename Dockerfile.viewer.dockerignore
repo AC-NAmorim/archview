@@ -1,0 +1,12 @@
+.venv/
+__pycache__/
+*.pyc
+.env
+.env.*
+output/
+architecture-overview/.cache/
+*.drawio
+*.csv
+*.log
+.git/
+.claude/

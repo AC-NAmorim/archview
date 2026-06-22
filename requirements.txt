@@ -1,0 +1,7 @@
+requests>=2.31
+python-dotenv>=1.0
+anthropic[vertex]>=0.40
+defusedxml>=0.7   # safe XML parsing — stdlib ET is vulnerable to XXE and billion-laughs
+ladybug>=0.17     # embedded graph DB (community fork of KuzuDB, MIT)
+mcp
+pyyaml>=6.0

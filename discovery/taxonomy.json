@@ -1,0 +1,70 @@
+{
+  "domains": [
+    {
+      "id": "1",
+      "name": "1. Content supply chain",
+      "description": "VOD/live ingest, transcode, packaging, QC, automated metadata enrichment (process/flow)",
+      "subdomains": ["VOD Ingest", "Live Ingest", "Transcode & Packaging", "QC & Enrichment"]
+    },
+    {
+      "id": "2",
+      "name": "2. Content management",
+      "description": "CMS system of record: catalog, EPG, rights and licensing windows (state)",
+      "subdomains": ["Catalog", "EPG", "Rights & Licensing", "Editorial Tools"]
+    },
+    {
+      "id": "3",
+      "name": "3. Playout & time-shift",
+      "description": "Linear scheduling/playout, catchup, startover, nPVR",
+      "subdomains": ["Linear Playout", "Catchup & Startover", "nPVR"]
+    },
+    {
+      "id": "4",
+      "name": "4. Delivery",
+      "description": "Origin, CDN/multi-CDN steering; enforcement: stream tokens, geo-blocking, DRM license delivery (PEP)",
+      "subdomains": ["Origin", "CDN Steering", "DRM & Stream Protection", "Geo-blocking"]
+    },
+    {
+      "id": "5",
+      "name": "5. Identity & entitlements",
+      "description": "AuthN/Z, subscriber system of record, entitlement decision engine (PDP)",
+      "subdomains": ["Authentication", "Subscriber Management", "Entitlement Engine"]
+    },
+    {
+      "id": "6",
+      "name": "6. Monetization",
+      "description": "Subscription lifecycle, purchase flows, billing events, payments, SSAI",
+      "subdomains": ["Subscription Lifecycle", "Billing & Payments", "Ads & SSAI"]
+    },
+    {
+      "id": "7",
+      "name": "7. Experience",
+      "description": "Client apps (STB, mobile, Smart TV, cast, web), player, search, recommendations, content rails",
+      "subdomains": ["Apps", "Player", "Discovery & Search", "Recommendations", "Content Rails"]
+    },
+    {
+      "id": "8",
+      "name": "8. Data & analytics",
+      "description": "QoE/QoS, BI, audience data, per-tenant reporting",
+      "subdomains": ["QoE / QoS", "BI & Reporting", "Audience Data"]
+    },
+    {
+      "id": "9",
+      "name": "9. B2B tenant operations",
+      "description": "Tenant onboarding, per-tenant commercial/branding/catalog config, care tools, SLA reporting",
+      "subdomains": ["Tenant Onboarding", "Configuration & Branding", "Care Tools", "SLA Reporting"]
+    },
+    {
+      "id": "10",
+      "name": "10. Platform foundation",
+      "description": "Cloud infra, API gateway, service mesh, multi-tenancy, observability, CI/CD",
+      "subdomains": ["Cloud Infra", "API Gateway", "Service Mesh", "Observability", "CI/CD"]
+    },
+    {
+      "id": "11",
+      "name": "11. Security",
+      "description": "DRM strategy, CAS, watermarking, anti-piracy, secrets, compliance (cross-cutting)",
+      "subdomains": ["DRM Strategy", "CAS", "Watermarking", "Anti-piracy"]
+    }
+  ]
+}

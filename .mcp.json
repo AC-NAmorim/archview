@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "archview": {
+      "command": "/Users/ac_namorim/workspace/archView/.venv/bin/python",
+      "args": ["-m", "scripts.mcp_server"],
+      "cwd": "/Users/ac_namorim/workspace/archView",
+      "description": "TVaaS architecture knowledge graph — domain classification, team ownership, cross-domain dependencies"
+    }
+  }
+}
