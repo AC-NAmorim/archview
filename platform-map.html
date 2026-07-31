@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AgileTV Platform — Live Service Map</title>
+<script src="https://cdn.jsdelivr.net/npm/d3@7.9.0/dist/d3.min.js"
+        integrity="sha384-CjloA8y00+1SDAUkjs099PVfnY2KmDC2BZnws9kh8D/lX1s46w6EPhpXdqMfjK6i"
+        crossorigin="anonymous"></script>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: #060612;
+    color: #e0e8ff;
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    overflow: hidden;
+    width: 100vw; height: 100vh;
+  }
+
+  #canvas { width: 100%; height: 100%; }
+
+  /* Pulse ring animation */
+  @keyframes pulse {
+    0%   { r: 0; opacity: 0.6; }
+    100% { r: 38; opacity: 0; }
+  }
+  .pulse-ring { animation: pulse 2.4s ease-out infinite; }
+  .pulse-ring-slow { animation: pulse 3.6s ease-out infinite; animation-delay: 0.8s; }
+
+  /* Particle flow along paths */
+  @keyframes dash-flow {
+    to { stroke-dashoffset: -20; }
+  }
+
+  /* Data packet flow */
+  @keyframes packet-move {
+    0%   { opacity: 1; }
+    90%  { opacity: 1; }
+    100% { opacity: 0; }
+  }
+
+  .flow-line {
+    animation: dash-flow 1.2s linear infinite;
+    stroke-dasharray: 4 8;
+    pointer-events: none;
+  }
+  .flow-line-slow { animation-duration: 2.4s; stroke-dasharray: 3 12; }
+  .flow-line-ext  { animation-duration: 4s;   stroke-dasharray: 2 16; }
+
+  /* Node glow via filter */
+  .node-live    { filter: url(#glow-live); }
+  .node-itaas   { filter: url(#glow-itaas); }
+  .node-cmse    { filter: url(#glow-cmse); }
+  .node-mib     { filter: url(#glow-mib); }
+  .node-aws     { filter: url(#glow-aws); }
+  .node-ext     { filter: url(#glow-ext); }
+
+  #legend {
+    position: absolute;
+    bottom: 24px; left: 24px;
+    background: rgba(6,6,18,0.82);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 10px;
+    padding: 16px 20px;
+    backdrop-filter: blur(8px);
+  }
+  #legend h4 { font-size: 10px; letter-spacing: 2px; color: #6878a8; margin-bottom: 12px; text-transform: uppercase; }
+  .legend-row { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; font-size: 11px; color: #a0b0d8; }
+  .legend-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+
+  #header {
+    position: absolute;
+    top: 20px; left: 50%;
+    transform: translateX(-50%);
+    text-align: center;
+    pointer-events: none;
+  }
+  #header h1 { font-size: 15px; letter-spacing: 4px; color: #8898cc; text-transform: uppercase; font-weight: 400; }
+  #header .sub { font-size: 10px; color: #445; margin-top: 4px; letter-spacing: 2px; }
+
+  #tooltip {
+    position: absolute;
+    background: rgba(8,8,24,0.95);
+    border: 1px solid rgba(100,140,255,0.3);
+    border-radius: 8px;
+    padding: 12px 16px;
+    font-size: 12px;
+    line-height: 1.8;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.15s;
+    max-width: 260px;
+    backdrop-filter: blur(12px);
+  }
+  #tooltip .tt-title { font-size: 13px; color: #c8d8ff; font-weight: 600; margin-bottom: 6px; }
+  #tooltip .tt-row   { color: #7888aa; }
+  #tooltip .tt-row span { color: #a8c0ff; }
+
+  #stats {
+    position: absolute;
+    top: 20px; right: 24px;
+    background: rgba(6,6,18,0.8);
+    border: 1px solid rgba(255,255,255,0.07);
+    border-radius: 10px;
+    padding: 14px 18px;
+    backdrop-filter: blur(8px);
+    font-size: 11px;
+  }
+  .stat-row { display: flex; justify-content: space-between; gap: 20px; margin-bottom: 4px; color: #6878a8; }
+  .stat-row span { color: #88aaff; font-weight: 600; }
+
+  /* Cluster label */
+  .cluster-label {
+    font-size: 9px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    fill-opacity: 0.35;
+    pointer-events: none;
+  }
+</style>
+</head>
+<body>
+
+<div id="header">
+  <h1>AgileTV — Platform Service Map</h1>
+  <div class="sub">live production topology · ecs fargate · us-east-1 &amp; eu-west-1</div>
+</div>
+
+<div id="stats">
+  <div class="stat-row">ECS Services running <span id="s-services">26</span></div>
+  <div class="stat-row">AWS Account <span>211125718407</span></div>
+  <div class="stat-row">Regions active <span>us-east-1 · eu-west-1</span></div>
+  <div class="stat-row">External BSS calls <span>MCSS · SOM</span></div>
+</div>
+
+<div id="legend">
+  <h4>Platform</h4>
+  <div class="legend-row"><div class="legend-dot" style="background:#4d7cff;box-shadow:0 0 6px #4d7cff"></div>Personal (BFF / SL)</div>
+  <div class="legend-row"><div class="legend-dot" style="background:#a855f7;box-shadow:0 0 6px #a855f7"></div>ITaaS Shared Services</div>
+  <div class="legend-row"><div class="legend-dot" style="background:#10b981;box-shadow:0 0 6px #10b981"></div>CMSE Content Platform</div>
+  <div class="legend-row"><div class="legend-dot" style="background:#06b6d4;box-shadow:0 0 6px #06b6d4"></div>MIB / DMM CMS</div>
+  <div class="legend-row"><div class="legend-dot" style="background:#f59e0b;box-shadow:0 0 6px #f59e0b"></div>AWS Managed</div>
+  <div class="legend-row"><div class="legend-dot" style="background:#ef4444;box-shadow:0 0 6px #ef4444"></div>External BSS / Partners</div>
+  <h4 style="margin-top:12px">Interface</h4>
+  <div class="legend-row"><div style="width:22px;height:2px;background:#4d7cff;opacity:0.8;box-shadow:0 0 4px #4d7cff"></div>REST/JSON</div>
+  <div class="legend-row"><div style="width:22px;height:2px;background:#a855f7;opacity:0.8;border-top:2px dashed #a855f7"></div>OIDC/JWT</div>
+  <div class="legend-row"><div style="width:22px;height:2px;background:#f59e0b;opacity:0.8"></div>AWS SDK</div>
+  <div class="legend-row"><div style="width:22px;height:2px;background:#ef4444;opacity:0.8;border-top:2px dashed #ef4444"></div>SOAP/XML → REST</div>
+</div>
+
+<div id="tooltip"></div>
+<svg id="canvas"></svg>
+
+<script>
+const W = window.innerWidth, H = window.innerHeight;
+const svg = d3.select('#canvas').attr('width', W).attr('height', H);
+
+// ── FILTERS ────────────────────────────────────────────────
+const defs = svg.append('defs');
+[
+  { id:'glow-live',  color:'#4d7cff' },
+  { id:'glow-itaas', color:'#a855f7' },
+  { id:'glow-cmse',  color:'#10b981' },
+  { id:'glow-mib',   color:'#06b6d4' },
+  { id:'glow-aws',   color:'#f59e0b' },
+  { id:'glow-ext',   color:'#ef4444' },
+].forEach(({id, color}) => {
+  const f = defs.append('filter').attr('id', id).attr('x','-50%').attr('y','-50%').attr('width','200%').attr('height','200%');
+  f.append('feGaussianBlur').attr('in','SourceGraphic').attr('stdDeviation','4').attr('result','blur');
+  const merge = f.append('feMerge');
+  merge.append('feMergeNode').attr('in','blur');
+  merge.append('feMergeNode').attr('in','SourceGraphic');
+});
+
+// Arrow markers
+['#4d7cff','#a855f7','#f59e0b','#ef4444','#10b981','#06b6d4'].forEach((color, i) => {
+  const id = `arrow-${i}`;
+  defs.append('marker').attr('id', id)
+    .attr('viewBox','0 -3 8 6').attr('refX',18).attr('refY',0)
+    .attr('markerWidth',6).attr('markerHeight',6).attr('orient','auto')
+    .append('path').attr('d','M0,-3L8,0L0,3').attr('fill', color).attr('fill-opacity', 0.7);
+});
+
+// ── DATA ───────────────────────────────────────────────────
+const cx = W/2, cy = H/2;
+
+const nodes = [
+  // ── Personal BFF / SL (us-east-1) ──
+  { id:'beethoven',      label:'beethoven',         sub:'BFF · Node.js · 2 tasks',   platform:'personal', type:'bff',     r:22, x: cx-260, y: cy+40  },
+  { id:'billing_proxy',  label:'billing-proxy',     sub:'BSS Adapter · Node.js · 2t', platform:'personal', type:'adapter', r:17, x: cx-340, y: cy+160 },
+  { id:'purchase_sl',    label:'purchase-sl',       sub:'Purchase SL · Node.js · 2t', platform:'personal', type:'service', r:17, x: cx-140, y: cy+160 },
+  { id:'backoffice',     label:'backoffice',        sub:'Admin UI · Node.js · 2t',    platform:'personal', type:'admin',   r:15, x: cx-420, y: cy-20  },
+  { id:'notification',   label:'notification-api',  sub:'Notifications · Node.js',    platform:'personal', type:'service', r:13, x: cx-180, y: cy-60  },
+  { id:'wurfl',          label:'wurfl-api',         sub:'Device Detection',           platform:'personal', type:'service', r:11, x: cx-80,  y: cy+10  },
+
+  // ── ITaaS Shared Services ──
+  { id:'wallstreet',     label:'wallstreet',        sub:'Billing Ledger · Node.js',   platform:'itaas',    type:'billing', r:20, x: cx-20,  y: cy-120 },
+  { id:'godfather',      label:'godfather',         sub:'Auth / Identity',            platform:'itaas',    type:'auth',    r:17, x: cx-260, y: cy-160 },
+  { id:'startrek',       label:'startrek',          sub:'Content Entitlements',       platform:'itaas',    type:'content', r:16, x: cx+60,  y: cy-60  },
+  { id:'content_api',    label:'content-api',       sub:'Content Catalog API',        platform:'itaas',    type:'content', r:14, x: cx+120, y: cy+20  },
+
+  // ── CMSE Content Platform (eu-west-1) ──
+  { id:'cmse_api',       label:'cmse-api',          sub:'Content API · eu-west-1',    platform:'cmse',     type:'api',     r:18, x: cx+280, y: cy-80  },
+  { id:'cmse_feeder',    label:'cmse-feeder',       sub:'Ingest Worker',              platform:'cmse',     type:'worker',  r:13, x: cx+380, y: cy-160 },
+  { id:'cmse_scheduler', label:'cmse-scheduler',    sub:'Scheduling Worker',          platform:'cmse',     type:'worker',  r:12, x: cx+420, y: cy-40  },
+  { id:'cmse_matcher',   label:'cmse-matcher',      sub:'Content Matcher',            platform:'cmse',     type:'worker',  r:12, x: cx+360, y: cy+60  },
+  { id:'cmse_tmdb',      label:'tmdb-connector',    sub:'Metadata Ingest',            platform:'cmse',     type:'connector',r:11,x: cx+480, y: cy-120 },
+  { id:'cmse_rightv',    label:'rightv-connector',  sub:'Rights Verification',        platform:'cmse',     type:'connector',r:11,x: cx+480, y: cy+30  },
+
+  // ── MIB / DMM CMS ──
+  { id:'mib_cms',        label:'mib-cms-api',       sub:'CMS API · .NET',             platform:'mib',      type:'api',     r:15, x: cx+200, y: cy+140 },
+  { id:'mib_auth',       label:'mib-auth',          sub:'CMS Auth',                   platform:'mib',      type:'auth',    r:11, x: cx+300, y: cy+200 },
+  { id:'mib_front',      label:'mib-front',         sub:'CMS Frontend',               platform:'mib',      type:'ui',      r:11, x: cx+140, y: cy+200 },
+  { id:'dmm_api',        label:'dmm-api',           sub:'Digital Media Mgmt API',     platform:'mib',      type:'api',     r:13, x: cx+260, y: cy+80  },
+
+  // ── AWS Managed ──
+  { id:'redis',      label:'Redis',         sub:'Cache · us-east-1',          platform:'aws',   type:'cache',  r:14, x: cx-60,  y: cy+200 },
+  { id:'sqs',        label:'SQS',           sub:'recharge-notification-prod',  platform:'aws',   type:'queue',  r:13, x: cx-200, y: cy+240 },
+  { id:'firehose',   label:'Firehose',      sub:'reports · providers-reports', platform:'aws',   type:'stream', r:13, x: cx+60,  y: cy+220 },
+  { id:'cloudfront', label:'CloudFront',    sub:'CDN · Signed URLs',           platform:'aws',   type:'cdn',    r:13, x: cx-420, y: cy+140 },
+  { id:'s3',         label:'S3',            sub:'cms-storage-production',      platform:'aws',   type:'store',  r:11, x: cx+160, y: cy+280 },
+
+  // ── External BSS / Partners ──
+  { id:'mcss',    label:'MCSS BSS',         sub:'pedidosvas2.personal.com.ar · SOAP', platform:'ext', type:'bss',     r:18, x: cx-520, y: cy+200 },
+  { id:'sso',     label:'Telecom SSO',      sub:'sso.telecom.com.ar · OIDC',          platform:'ext', type:'auth',    r:15, x: cx-340, y: cy-240 },
+  { id:'som',     label:'SOM',              sub:'Service Order Mgmt',                 platform:'ext', type:'bss',     r:15, x: cx-60,  y: cy+300 },
+  { id:'disney',  label:'Disney+',          sub:'Content Partner · REST',             platform:'ext', type:'partner', r:13, x: cx+120, y: cy+340 },
+  { id:'tmdb',    label:'TMDB',             sub:'Metadata · REST/JSON',               platform:'ext', type:'partner', r:12, x: cx+560, y: cy-200 },
+  { id:'rightv',  label:'RightsVision',     sub:'Rights Management API',              platform:'ext', type:'rights',  r:12, x: cx+580, y: cy+80  },
+  { id:'flow',    label:'CablevisionFlow',  sub:'registrovideo.cablevisionflow.com.ar',platform:'ext', type:'partner', r:11, x: cx-480, y: cy-120 },
+];
+
+// edge: {s, t, proto, format, arrowIdx, speed}
+const edges = [
+  // beethoven → everything
+  { s:'beethoven',     t:'billing_proxy', proto:'REST',    fmt:'JSON',     ai:0, sp:'normal' },
+  { s:'beethoven',     t:'wallstreet',    proto:'REST',    fmt:'JSON',     ai:0, sp:'normal' },
+  { s:'beethoven',     t:'startrek',      proto:'REST',    fmt:'JSON',     ai:0, sp:'normal' },
+  { s:'beethoven',     t:'content_api',   proto:'REST',    fmt:'JSON',     ai:0, sp:'normal' },
+  { s:'beethoven',     t:'godfather',     proto:'REST',    fmt:'JSON',     ai:0, sp:'normal' },
+  { s:'beethoven',     t:'notification',  proto:'REST',    fmt:'JSON',     ai:0, sp:'normal' },
+  { s:'beethoven',     t:'redis',         proto:'Redis',   fmt:'Binary',   ai:4, sp:'fast'   },
+  { s:'beethoven',     t:'sqs',           proto:'AWS SDK', fmt:'JSON',     ai:2, sp:'slow'   },
+  { s:'beethoven',     t:'firehose',      proto:'AWS SDK', fmt:'JSON',     ai:2, sp:'slow'   },
+  { s:'beethoven',     t:'cloudfront',    proto:'HTTPS',   fmt:'SignedURL', ai:2, sp:'fast'  },
+  { s:'beethoven',     t:'sso',           proto:'OIDC',    fmt:'JWT',      ai:1, sp:'slow'   },
+  { s:'beethoven',     t:'flow',          proto:'HTTPS',   fmt:'Redirect', ai:0, sp:'ext'    },
+  // backoffice
+  { s:'backoffice',    t:'beethoven',     proto:'REST',    fmt:'JSON',     ai:0, sp:'normal' },
+  { s:'backoffice',    t:'purchase_sl',   proto:'REST',    fmt:'JSON',     ai:0, sp:'normal' },
+  { s:'backoffice',    t:'billing_proxy', proto:'REST',    fmt:'JSON',     ai:0, sp:'normal' },
+  { s:'backoffice',    t:'wallstreet',    proto:'REST',    fmt:'JSON',     ai:0, sp:'normal' },
+  { s:'backoffice',    t:'redis',         proto:'Redis',   fmt:'Binary',   ai:4, sp:'fast'   },
+  { s:'backoffice',    t:'cloudfront',    proto:'HTTPS',   fmt:'SignedURL', ai:2, sp:'slow'  },
+  // billing_proxy → MCSS
+  { s:'billing_proxy', t:'mcss',          proto:'REST→SOAP',fmt:'XML',    ai:3, sp:'ext'    },
+  // purchase_sl
+  { s:'purchase_sl',   t:'som',           proto:'REST',    fmt:'JSON',     ai:0, sp:'ext'    },
+  { s:'purchase_sl',   t:'disney',        proto:'REST',    fmt:'JSON',     ai:0, sp:'ext'    },
+  { s:'purchase_sl',   t:'sso',           proto:'OIDC',    fmt:'JWT',      ai:1, sp:'slow'   },
+  { s:'purchase_sl',   t:'sqs',           proto:'AWS SDK', fmt:'JSON',     ai:2, sp:'slow'   },
+  // wallstreet used by many operators (showing representative callers)
+  { s:'wallstreet',    t:'billing_proxy', proto:'REST',    fmt:'JSON',     ai:0, sp:'fast'   },
+  // CMSE
+  { s:'cmse_feeder',   t:'cmse_api',      proto:'REST',    fmt:'JSON',     ai:4, sp:'normal' },
+  { s:'cmse_scheduler',t:'cmse_api',      proto:'REST',    fmt:'JSON',     ai:4, sp:'slow'   },
+  { s:'cmse_matcher',  t:'cmse_api',      proto:'REST',    fmt:'JSON',     ai:4, sp:'slow'   },
+  { s:'cmse_tmdb',     t:'tmdb',          proto:'REST',    fmt:'JSON',     ai:3, sp:'ext'    },
+  { s:'cmse_rightv',   t:'rightv',        proto:'REST',    fmt:'JSON',     ai:3, sp:'ext'    },
+  { s:'cmse_api',      t:'mib_cms',       proto:'REST',    fmt:'JSON',     ai:4, sp:'normal' },
+  { s:'cmse_api',      t:'s3',            proto:'AWS SDK', fmt:'Binary',   ai:2, sp:'slow'   },
+  // MIB
+  { s:'dmm_api',       t:'mib_cms',       proto:'REST',    fmt:'JSON',     ai:5, sp:'normal' },
+  { s:'mib_cms',       t:'mib_auth',      proto:'REST',    fmt:'JWT',      ai:5, sp:'fast'   },
+  { s:'mib_front',     t:'mib_cms',       proto:'REST',    fmt:'JSON',     ai:5, sp:'fast'   },
+  { s:'mib_cms',       t:'s3',            proto:'AWS SDK', fmt:'Binary',   ai:2, sp:'slow'   },
+];
+
+// ── COLOUR MAP ─────────────────────────────────────────────
+const platformColor = {
+  personal: '#4d7cff',
+  itaas:    '#a855f7',
+  cmse:     '#10b981',
+  mib:      '#06b6d4',
+  aws:      '#f59e0b',
+  ext:      '#ef4444',
+};
+
+const nodeMap = {};
+nodes.forEach(n => nodeMap[n.id] = n);
+
+// ── CLUSTER BACKGROUNDS ────────────────────────────────────
+const clusters = [
+  { label:'Personal Platform  ·  us-east-1', color:'#4d7cff', ids:['beethoven','billing_proxy','purchase_sl','backoffice','notification','wurfl'] },
+  { label:'ITaaS Shared Services',            color:'#a855f7', ids:['wallstreet','godfather','startrek','content_api'] },
+  { label:'CMSE  ·  eu-west-1',              color:'#10b981', ids:['cmse_api','cmse_feeder','cmse_scheduler','cmse_matcher','cmse_tmdb','cmse_rightv'] },
+  { label:'MIB / DMM CMS  ·  eu-west-1',    color:'#06b6d4', ids:['mib_cms','mib_auth','mib_front','dmm_api'] },
+  { label:'AWS Managed',                      color:'#f59e0b', ids:['redis','sqs','firehose','cloudfront','s3'] },
+];
+
+function clusterBounds(ids, pad=48) {
+  const ns = ids.map(id => nodeMap[id]).filter(Boolean);
+  const xs = ns.map(n => n.x), ys = ns.map(n => n.y), rs = ns.map(n => n.r);
+  return {
+    x: Math.min(...xs) - Math.max(...rs) - pad,
+    y: Math.min(...ys) - Math.max(...rs) - pad,
+    w: Math.max(...xs) - Math.min(...xs) + 2*Math.max(...rs) + pad*2,
+    h: Math.max(...ys) - Math.min(...ys) + 2*Math.max(...rs) + pad*2,
+  };
+}
+
+const clusterG = svg.append('g').attr('class','clusters');
+clusters.forEach(c => {
+  const b = clusterBounds(c.ids);
+  clusterG.append('rect')
+    .attr('x', b.x).attr('y', b.y).attr('width', b.w).attr('height', b.h)
+    .attr('rx', 20)
+    .attr('fill', c.color).attr('fill-opacity', 0.03)
+    .attr('stroke', c.color).attr('stroke-opacity', 0.12).attr('stroke-width', 1);
+  clusterG.append('text')
+    .attr('class','cluster-label')
+    .attr('x', b.x + 14).attr('y', b.y + 16)
+    .attr('fill', c.color)
+    .text(c.label);
+});
+
+// ── EDGES ──────────────────────────────────────────────────
+const speedClass = { fast:'flow-line', normal:'flow-line flow-line-slow', slow:'flow-line flow-line-slow', ext:'flow-line flow-line-ext' };
+const edgeColor  = { 0:'#4d7cff', 1:'#a855f7', 2:'#f59e0b', 3:'#ef4444', 4:'#10b981', 5:'#06b6d4' };
+
+const edgeG = svg.append('g').attr('class','edges');
+
+edges.forEach(e => {
+  const src = nodeMap[e.s], tgt = nodeMap[e.t];
+  if (!src || !tgt) return;
+  const color = edgeColor[e.ai] || '#4d7cff';
+
+  // base subtle line
+  edgeG.append('line')
+    .attr('x1', src.x).attr('y1', src.y)
+    .attr('x2', tgt.x).attr('y2', tgt.y)
+    .attr('stroke', color).attr('stroke-opacity', 0.08)
+    .attr('stroke-width', 1);
+
+  // animated flow line
+  edgeG.append('line')
+    .attr('class', speedClass[e.sp] || 'flow-line flow-line-slow')
+    .attr('x1', src.x).attr('y1', src.y)
+    .attr('x2', tgt.x).attr('y2', tgt.y)
+    .attr('stroke', color).attr('stroke-opacity', 0.55)
+    .attr('stroke-width', e.sp === 'ext' ? 1 : 1.5)
+    .attr('marker-end', `url(#arrow-${e.ai})`);
+});
+
+// ── NODES ──────────────────────────────────────────────────
+const glowClass = { personal:'node-live', itaas:'node-itaas', cmse:'node-cmse', mib:'node-mib', aws:'node-aws', ext:'node-ext' };
+
+const nodeG = svg.append('g').attr('class','nodes');
+const tooltip = document.getElementById('tooltip');
+
+nodes.forEach((n, i) => {
+  const color  = platformColor[n.platform];
+  const gClass = glowClass[n.platform];
+  const g = nodeG.append('g').attr('transform', `translate(${n.x},${n.y})`).style('cursor','pointer');
+
+  // outer pulse rings (only for live services, not ext or aws)
+  if (!['ext','aws'].includes(n.platform)) {
+    g.append('circle').attr('class','pulse-ring').attr('r', 0)
+      .attr('fill','none').attr('stroke', color).attr('stroke-width', 1.5)
+      .attr('stroke-opacity', 0)
+      .style('animation-delay', `${(i * 0.37) % 2.4}s`);
+    if (n.r >= 16) {
+      g.append('circle').attr('class','pulse-ring-slow').attr('r', 0)
+        .attr('fill','none').attr('stroke', color).attr('stroke-width', 1)
+        .attr('stroke-opacity', 0)
+        .style('animation-delay', `${(i * 0.37 + 1.2) % 2.4}s`);
+    }
+  }
+
+  // halo
+  g.append('circle').attr('r', n.r + 5)
+    .attr('fill', color).attr('fill-opacity', 0.07);
+
+  // main node
+  const isDashed = n.platform === 'ext';
+  g.append('circle').attr('r', n.r)
+    .attr('class', gClass)
+    .attr('fill', '#0a0a1a')
+    .attr('stroke', color)
+    .attr('stroke-width', isDashed ? 1.5 : 2)
+    .attr('stroke-dasharray', isDashed ? '4 3' : null);
+
+  // inner fill
+  g.append('circle').attr('r', n.r - 4)
+    .attr('fill', color).attr('fill-opacity', 0.12);
+
+  // live indicator dot
+  if (!['ext'].includes(n.platform)) {
+    g.append('circle')
+      .attr('cx', n.r - 4).attr('cy', -(n.r - 4))
+      .attr('r', 3)
+      .attr('fill', '#22c55e')
+      .attr('stroke', '#0a0a1a').attr('stroke-width', 1.5);
+  }
+
+  // label
+  g.append('text')
+    .attr('dy', n.r + 14)
+    .attr('text-anchor','middle')
+    .attr('font-size', 9)
+    .attr('fill', color)
+    .attr('fill-opacity', 0.9)
+    .attr('letter-spacing', '0.5px')
+    .text(n.label);
+
+  // tooltip
+  g.on('mousemove', function(event) {
+    const inEdges  = edges.filter(e => e.t === n.id).map(e => `← ${e.s} <span style="color:#556">(${e.proto}/${e.fmt})</span>`);
+    const outEdges = edges.filter(e => e.s === n.id).map(e => `→ ${e.t} <span style="color:#556">(${e.proto}/${e.fmt})</span>`);
+    tooltip.innerHTML = `
+      <div class="tt-title">${n.label}</div>
+      <div class="tt-row">${n.sub}</div>
+      ${outEdges.length ? `<div style="margin-top:8px;color:#4d7cff;font-size:10px">CALLS</div>${outEdges.map(r=>`<div class="tt-row">${r}</div>`).join('')}` : ''}
+      ${inEdges.length  ? `<div style="margin-top:6px;color:#a855f7;font-size:10px">CALLED BY</div>${inEdges.map(r=>`<div class="tt-row">${r}</div>`).join('')}` : ''}
+    `;
+    tooltip.style.opacity = '1';
+    tooltip.style.left = (event.pageX + 16) + 'px';
+    tooltip.style.top  = (event.pageY - 10) + 'px';
+  })
+  .on('mouseleave', () => { tooltip.style.opacity = '0'; });
+});
+
+// ── BACKGROUND STARS ───────────────────────────────────────
+const starG = svg.insert('g', ':first-child').attr('class','stars');
+d3.range(160).forEach(() => {
+  starG.append('circle')
+    .attr('cx', Math.random() * W)
+    .attr('cy', Math.random() * H)
+    .attr('r', Math.random() * 1.2)
+    .attr('fill', '#ffffff')
+    .attr('fill-opacity', Math.random() * 0.3 + 0.05);
+});
+
+// ── PAN / ZOOM ─────────────────────────────────────────────
+const zoom = d3.zoom()
+  .scaleExtent([0.3, 2.5])
+  .on('zoom', e => {
+    clusterG.attr('transform', e.transform);
+    edgeG.attr('transform',   e.transform);
+    nodeG.attr('transform',   e.transform);
+  });
+svg.call(zoom);
+
+// Initial slight offset so clusters are centered
+svg.call(zoom.transform, d3.zoomIdentity.translate(0, 0).scale(0.88));
+</script>
+</body>
+</html>
