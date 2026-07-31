@@ -1,12 +1,12 @@
 export const COLORS = {
-  personal: '#60a5fa',
-  itaas:    '#a78bfa',
-  kong:     '#fbbf24',
-  cmse:     '#34d399',
-  mib:      '#38bdf8',
-  aws:      '#fb923c',
-  ext:      '#f87171',
-  mgmt:     '#e879f9',
+  personal: '#2563eb',
+  itaas:    '#7c3aed',
+  kong:     '#d97706',
+  cmse:     '#059669',
+  mib:      '#0284c7',
+  aws:      '#ea580c',
+  ext:      '#dc2626',
+  mgmt:     '#c026d3',
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────
@@ -38,8 +38,8 @@ const edge = (id, source, target, label, type = 'rest', animated = true) => {
       stroke: color, strokeWidth: 1.5,
       strokeDasharray: dashes[type],
     },
-    labelStyle: { fill: '#475569', fontSize: 9, fontFamily: 'Inter, sans-serif' },
-    labelBgStyle: { fill: '#0c1120', fillOpacity: 0.9 },
+    labelStyle: { fill: '#64748b', fontSize: 9, fontFamily: 'Inter, sans-serif' },
+    labelBgStyle: { fill: '#ffffff', fillOpacity: 0.9 },
     labelBgPadding: [3, 5],
     markerEnd: { type: 'arrowclosed', width: 10, height: 10, color },
   }
