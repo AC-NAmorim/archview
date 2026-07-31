@@ -1,17 +1,71 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 body {
-  font-family: 'Inter', system-ui, sans-serif;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
   -webkit-font-smoothing: antialiased;
+  background: #07090f;
 }
 
-/* Tighten React Flow edge labels */
-.react-flow__edge-label {
-  pointer-events: none;
+/* ── React Flow overrides (dark theme) ────────────────────────────────── */
+.react-flow__controls {
+  box-shadow: 0 4px 24px rgba(0,0,0,0.5) !important;
+  border: 1px solid rgba(255,255,255,0.07) !important;
+  border-radius: 10px !important;
+  overflow: hidden;
+  background: rgba(10,14,26,0.9) !important;
+  backdrop-filter: blur(16px);
 }
 
-/* Slightly softer handles on hover */
-.react-flow__handle:hover {
-  transform: scale(1.4);
-  transition: transform 0.1s;
+.react-flow__controls-button {
+  background: transparent !important;
+  border: none !important;
+  border-bottom: 1px solid rgba(255,255,255,0.06) !important;
+  color: #475569 !important;
+  fill: #475569 !important;
+}
+.react-flow__controls-button:hover {
+  background: rgba(255,255,255,0.05) !important;
+  color: #94a3b8 !important;
+  fill: #94a3b8 !important;
+}
+.react-flow__controls-button:last-child {
+  border-bottom: none !important;
+}
+
+.react-flow__edge-path {
+  filter: drop-shadow(0 0 2px currentColor);
+}
+
+/* Edge label bg */
+.react-flow__edge-textbg {
+  rx: 3; ry: 3;
+}
+
+/* Handle visibility */
+.react-flow__handle {
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+.react-flow__node:hover .react-flow__handle,
+.react-flow__node.selected .react-flow__handle {
+  opacity: 1;
+}
+
+/* Smooth node transitions */
+.react-flow__node {
+  transition: filter 0.2s;
+}
+.react-flow__node.selected {
+  filter: brightness(1.08);
+}
+
+/* Attribution */
+.react-flow__attribution {
+  background: rgba(10,14,26,0.8) !important;
+  color: #1e293b !important;
+  border-radius: 4px;
+  padding: 2px 6px;
+}
+.react-flow__attribution a {
+  color: #334155 !important;
 }

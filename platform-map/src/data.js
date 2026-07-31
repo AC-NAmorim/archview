@@ -1,173 +1,179 @@
-// ── Palette ────────────────────────────────────────────────────────────────
 export const COLORS = {
-  personal: '#2563eb',
-  itaas:    '#7c3aed',
-  cmse:     '#059669',
-  mib:      '#0284c7',
-  aws:      '#d97706',
-  ext:      '#dc2626',
+  personal: '#60a5fa',
+  itaas:    '#a78bfa',
+  kong:     '#fbbf24',
+  cmse:     '#34d399',
+  mib:      '#38bdf8',
+  aws:      '#fb923c',
+  ext:      '#f87171',
+  mgmt:     '#e879f9',
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 const svc = (id, label, sub, platform, x, y, extra = {}) => ({
-  id,
-  type: 'serviceNode',
-  position: { x, y },
+  id, type: 'serviceNode', position: { x, y },
   data: { label, sub, platform, color: COLORS[platform], ...extra },
 })
 
 const grp = (id, label, platform, x, y, w, h) => ({
-  id,
-  type: 'groupNode',
-  position: { x, y },
+  id, type: 'groupNode', position: { x, y },
   style: { width: w, height: h },
   data: { label, color: COLORS[platform] },
-  selectable: false,
-  focusable: false,
+  selectable: false, focusable: false,
 })
 
-const edge = (id, source, target, label, type = 'rest') => ({
-  id,
-  source,
-  target,
-  label,
-  type: 'smoothstep',
-  animated: type === 'stream',
-  style: {
-    stroke: type === 'soap'   ? COLORS.ext
-          : type === 'oidc'   ? COLORS.itaas
-          : type === 'aws'    ? COLORS.aws
-          : type === 'redis'  ? COLORS.aws
-          : '#94a3b8',
-    strokeWidth: 1.5,
-    strokeDasharray: type === 'oidc' || type === 'soap' ? '5 4' : undefined,
-  },
-  labelStyle: { fill: '#64748b', fontSize: 9, fontFamily: 'Inter, sans-serif' },
-  labelBgStyle: { fill: '#f8fafc', fillOpacity: 0.85 },
-  markerEnd: {
-    type: 'arrowclosed',
-    width: 12, height: 12,
-    color: type === 'soap'  ? COLORS.ext
-         : type === 'oidc'  ? COLORS.itaas
-         : type === 'aws'   ? COLORS.aws
-         : type === 'redis' ? COLORS.aws
-         : '#94a3b8',
-  },
-})
+// edge type controls dash + color; animated = flowing dash on live routes
+const edge = (id, source, target, label, type = 'rest', animated = true) => {
+  const colors = {
+    rest:  '#475569', kong:  '#f59e0b',
+    soap:  '#ef4444', oidc:  '#8b5cf6',
+    aws:   '#f97316', redis: '#f97316',
+  }
+  const dashes = { soap: '6 4', oidc: '6 4' }
+  const color = colors[type] ?? colors.rest
+  return {
+    id, source, target, label,
+    type: 'smoothstep', animated,
+    style: {
+      stroke: color, strokeWidth: 1.5,
+      strokeDasharray: dashes[type],
+    },
+    labelStyle: { fill: '#475569', fontSize: 9, fontFamily: 'Inter, sans-serif' },
+    labelBgStyle: { fill: '#0c1120', fillOpacity: 0.9 },
+    labelBgPadding: [3, 5],
+    markerEnd: { type: 'arrowclosed', width: 10, height: 10, color },
+  }
+}
 
 // ── Nodes ──────────────────────────────────────────────────────────────────
 //
-// Layout (canvas px, no parent-child — free to rearrange):
-//
-//  ┌─ Personal (us-east-1) ──┐  ┌─ ITaaS Shared ──┐  ┌─ External BSS ──┐
-//  │                          │  │                  │  │                 │
-//  └──────────────────────────┘  └──────────────────┘  └─────────────────┘
-//  ┌─ AWS Managed ────────────────────────────────────────────────────────┐
-//  └──────────────────────────────────────────────────────────────────────┘
-//  ┌─ CMSE · eu-west-1 (isolated, own AWS account) ──┐  ┌─ MIB/DMM ────┐
-//  └──────────────────────────────────────────────────┘  └──────────────┘
+//  [Personal]  ──→  [Kong]  ──→  [ITaaS]  ──→  [External BSS]
+//                                               [Mgmt Portal]
+//  [AWS Managed]
+//  [CMSE · isolated]           [MIB/DMM · isolated]
 
 export const initialNodes = [
-  // ── Group backgrounds (rendered first so they sit behind service nodes) ─
-  grp('g-personal', 'Personal Platform · us-east-1 · AWS 469793732550', 'personal',  30,  30, 640, 460),
-  grp('g-itaas',    'ITaaS Shared Services',                             'itaas',    710,  30, 400, 320),
-  grp('g-ext',      'External BSS & Partners',                           'ext',     1150,  30, 280, 580),
-  grp('g-aws',      'AWS Managed · us-east-1',                           'aws',       30, 520, 680, 160),
-  grp('g-cmse',     'CMSE Content Platform · eu-west-1 · AWS 211125718407 (isolated)', 'cmse', 30, 720, 680, 240),
-  grp('g-mib',      'MIB / DMM CMS · eu-west-1 · AWS 211125718407',      'mib',     750, 720, 470, 240),
+  // ── Group backgrounds ──────────────────────────────────────────────────
+  grp('g-personal', 'Personal Platform · us-east-1 · AWS 469793732550', 'personal',  50,  50, 620, 430),
+  grp('g-itaas',    'ITaaS Shared Services · AWS 469793732550',          'itaas',    890,  50, 450, 490),
+  grp('g-ext',      'External BSS & Partners',                           'ext',     1420,  50, 270, 590),
+  grp('g-aws',      'AWS Managed · us-east-1',                           'aws',       50, 560, 700, 150),
+  grp('g-mgmt',     'Management Portal',                                  'mgmt',    1420, 700, 270, 195),
+  grp('g-cmse',     'CMSE Content Pipeline · eu-west-1 · AWS 211125718407 (isolated)', 'cmse', 50, 790, 680, 220),
+  grp('g-mib',      'MIB / DMM CMS · eu-west-1 · AWS 211125718407',      'mib',     800, 790, 490, 220),
 
   // ── Personal Platform ──────────────────────────────────────────────────
-  svc('beethoven',     'beethoven',       'BFF · Node.js · 2 tasks · :8086',    'personal',  220, 120),
-  svc('backoffice',    'backoffice',      'Admin UI · Node.js · 2 tasks',        'personal',   60,  80),
-  svc('notification',  'notification-api','Notifications · Node.js',             'personal',  430,  80),
-  svc('billing_proxy', 'billing-proxy',   'BSS Adapter · Node.js · 2t · :8088', 'personal',   60, 280),
-  svc('purchase_sl',   'purchase-sl',     'Purchase SL · Node.js · 2t · :8087', 'personal',  430, 280),
-  svc('wurfl',         'wurfl-api',       'Device Detection (WURFL)',            'personal',  220, 370),
+  svc('backoffice',    'backoffice',       'Admin UI · Node.js · 2t',         'personal',  70,  95),
+  svc('beethoven',     'beethoven',        'BFF · Node.js · 2t · :8086',      'personal', 290, 150),
+  svc('notification',  'notification-api', 'Notifications · Node.js',         'personal', 430,  95),
+  svc('billing_proxy', 'billing-proxy',    'BSS Adapter · Node.js · 2t · :8088', 'personal', 70, 285),
+  svc('purchase_sl',   'purchase-sl',      'Purchase SL · Node.js · 2t · :8087', 'personal', 390, 285),
+  svc('wurfl',         'wurfl-api',        'Device Detection (WURFL)',         'personal', 235, 375),
 
-  // ── ITaaS Shared (same AWS account as Personal) ────────────────────────
-  svc('wallstreet',  'wallstreet',   'Billing Ledger · Node.js',  'itaas',  730, 100),
-  svc('godfather',   'godfather',    'Auth / Identity · Postgres', 'itaas',  730, 230),
-  svc('startrek',    'startrek',     'Content Entitlements',       'itaas',  970, 100),
-  svc('content_api', 'content-api',  'Content Catalog API',        'itaas',  970, 230),
+  // ── Kong API Gateway (standalone — sits between Personal and ITaaS) ────
+  {
+    id: 'kong', type: 'kongNode', position: { x: 745, y: 215 },
+    data: {
+      label: 'Kong', sub: 'API Gateway',
+      plugins: ['key-auth', 'acl', 'rate-limit'],
+      upstreams: 5,
+      color: COLORS.kong,
+    },
+  },
+
+  // ── ITaaS Shared Services ──────────────────────────────────────────────
+  svc('wallstreet',  'wallstreet',   'Billing Ledger · Node.js',              'itaas',  910, 100),
+  svc('startrek',    'startrek',     'Content Entitlements',                  'itaas', 1130, 100),
+  svc('swordfish',   'swordfish',    'Login / Password · Node.js → Postgres', 'itaas',  910, 245),
+  svc('content_api', 'content-api',  'Content Catalog API',                   'itaas', 1130, 245),
+  svc('godfather',   'godfather',    'Auth / Identity · Postgres',            'itaas',  910, 385),
 
   // ── External BSS / Partners ────────────────────────────────────────────
-  svc('mcss',   'MCSS BSS',      'pedidosvas2.personal.com.ar\nSOAP/XML → REST', 'ext', 1175,  70),
-  svc('sso',    'Telecom SSO',   'sso.telecom.com.ar · OIDC/JWKS',               'ext', 1175, 210),
-  svc('som',    'SOM',           'Service Order Management · REST',               'ext', 1175, 350),
-  svc('disney', 'Disney+',       'Content Partner · REST/JSON',                   'ext', 1175, 470),
+  svc('mcss',   'MCSS BSS',      'pedidosvas2.personal.com.ar\nSOAP/XML → REST', 'ext', 1440,  80),
+  svc('sso',    'Telecom SSO',   'sso.telecom.com.ar · OIDC/JWKS',               'ext', 1440, 220),
+  svc('som',    'SOM',           'Service Order Management',                      'ext', 1440, 355),
+  svc('disney', 'Disney+',       'Content Partner · REST/JSON',                   'ext', 1440, 480),
+
+  // ── Management Portal ──────────────────────────────────────────────────
+  svc('mgmt_portal', 'agile-portal',  'Management Frontend · React',  'mgmt', 1440, 730),
+  svc('keycloak',    'Keycloak',      'IAM · realm: management-portal\nEDITOR · ADMIN · QA_APPROVER', 'mgmt', 1440, 840),
 
   // ── AWS Managed ────────────────────────────────────────────────────────
-  svc('redis',      'Redis',      'notify.redis.production · :6379',  'aws',   50, 575),
-  svc('sqs',        'SQS',        'recharge-notification-prod',        'aws',  225, 575),
-  svc('firehose',   'Firehose',   'reports · providers-reports',       'aws',  410, 575),
-  svc('cloudfront', 'CloudFront', 'cdn-production.personal-svcs.com', 'aws',  575, 575),
+  svc('redis',      'Redis',      'Cache · :6379',                    'aws',   70, 620),
+  svc('sqs',        'SQS',        'recharge-notification-prod',       'aws',  250, 620),
+  svc('firehose',   'Firehose',   'reports · providers-reports',      'aws',  440, 620),
+  svc('cloudfront', 'CloudFront', 'CDN · cdn-production.personal-svcs.com', 'aws', 600, 620),
 
-  // ── CMSE — isolated, separate AWS account ─────────────────────────────
-  svc('cmse_api',       'cmse-api',         'Content API · eu-west-1',  'cmse',   50, 790),
-  svc('cmse_feeder',    'cmse-feeder',       'Ingest Worker',             'cmse',  230, 790),
-  svc('cmse_scheduler', 'cmse-scheduler',    'Scheduling Worker',         'cmse',  430, 790),
-  svc('cmse_matcher',   'cmse-matcher',      'Content Matcher',           'cmse',  230, 890),
-  svc('cmse_tmdb',      'tmdb-connector',    'TMDB Metadata Ingest',      'cmse',  430, 890),
-  svc('cmse_rightv',    'rightv-connector',  'Rights Verification',       'cmse',   50, 890),
+  // ── CMSE Content Pipeline (isolated) ──────────────────────────────────
+  svc('cmse_api',       'cmse-api',        'Content API · eu-west-1', 'cmse',  70, 855),
+  svc('cmse_feeder',    'cmse-feeder',      'Ingest Worker',           'cmse', 240, 855),
+  svc('cmse_scheduler', 'cmse-scheduler',   'Scheduling Worker',       'cmse', 440, 855),
+  svc('cmse_matcher',   'cmse-matcher',     'Content Matcher',         'cmse', 240, 950),
+  svc('cmse_tmdb',      'tmdb-connector',   'TMDB Ingest',             'cmse', 440, 950),
+  svc('cmse_rightv',    'rightv-connector', 'Rights Verification',     'cmse',  70, 950),
 
-  // CMSE external targets (positioned just outside the CMSE group)
-  svc('tmdb',   'TMDB',          'api.themoviedb.org · REST/JSON', 'ext', 750, 800),
-  svc('rightv', 'RightsVision',  'Rights Management API · REST',   'ext', 750, 900),
+  // CMSE external targets (outside CMSE group)
+  svc('tmdb',   'TMDB',         'api.themoviedb.org · REST/JSON', 'ext', 800, 855),
+  svc('rightv', 'RightsVision', 'Rights Management API · REST',   'ext', 800, 950),
 
-  // ── MIB / DMM CMS ─────────────────────────────────────────────────────
-  svc('mib_cms',   'mib-cms-api', 'CMS API · .NET',            'mib',  770, 790),
-  svc('mib_auth',  'mib-auth',    'CMS Auth',                   'mib',  990, 790),
-  svc('mib_front', 'mib-front',   'CMS Frontend',               'mib',  770, 890),
-  svc('dmm_api',   'dmm-api',     'Digital Media Mgmt API',     'mib',  990, 890),
+  // ── MIB / DMM CMS (co-deployed, eu-west-1) ────────────────────────────
+  svc('mib_cms',   'mib-cms-api', 'CMS API · .NET',         'mib',  820, 855),
+  svc('mib_auth',  'mib-auth',    'CMS Auth',                'mib', 1040, 855),
+  svc('mib_front', 'mib-front',   'CMS Frontend',            'mib',  820, 950),
+  svc('dmm_api',   'dmm-api',     'Digital Media Mgmt API',  'mib', 1040, 950),
 ]
 
 // ── Edges ──────────────────────────────────────────────────────────────────
-// Only edges confirmed via Terraform env vars or GitHub code search.
-// Uncertain links (Telecom AuthM test endpoint, Cablevision redirect) omitted.
+// Personal services → Kong → ITaaS (Kong is the authenticated gateway layer)
+// Direct edges kept for non-Kong paths (BSS, AWS, SSO)
 
 export const initialEdges = [
-  // backoffice → internal services (confirmed via env vars)
-  edge('bo-beet',  'backoffice',    'beethoven',    'REST/JSON'),
-  edge('bo-bp',    'backoffice',    'billing_proxy','REST/JSON'),
-  edge('bo-psl',   'backoffice',    'purchase_sl',  'REST/JSON'),
-  edge('bo-ws',    'backoffice',    'wallstreet',   'REST/JSON'),
-  edge('bo-redis', 'backoffice',    'redis',        'Redis',   'redis'),
-  edge('bo-cf',    'backoffice',    'cloudfront',   'Signed URL', 'aws'),
+  // ── Through Kong ────────────────────────────────────────────────────────
+  edge('beet-kong',   'beethoven',  'kong',       'via Kong',     'kong'),
+  edge('bo-kong',     'backoffice', 'kong',       'via Kong',     'kong'),
+  edge('kong-ws',     'kong',       'wallstreet', 'proxied REST', 'kong'),
+  edge('kong-st',     'kong',       'startrek',   'proxied REST', 'kong'),
+  edge('kong-sw',     'kong',       'swordfish',  'proxied REST', 'kong'),
+  edge('kong-gf',     'kong',       'godfather',  'proxied REST', 'kong'),
+  edge('kong-ca',     'kong',       'content_api','proxied REST', 'kong'),
 
-  // beethoven → dependencies (all confirmed via production.tfvars)
-  edge('beet-bp',   'beethoven', 'billing_proxy', 'REST/JSON'),
-  edge('beet-ws',   'beethoven', 'wallstreet',    'REST/JSON'),
-  edge('beet-st',   'beethoven', 'startrek',      'REST/JSON'),
-  edge('beet-ca',   'beethoven', 'content_api',   'REST/JSON'),
-  edge('beet-gf',   'beethoven', 'godfather',     'REST/JSON'),
-  edge('beet-notif','beethoven', 'notification',  'REST/JSON'),
-  edge('beet-wurfl','beethoven', 'wurfl',         'REST/JSON'),
-  edge('beet-redis','beethoven', 'redis',         'Redis',      'redis'),
-  edge('beet-sqs',  'beethoven', 'sqs',           'AWS SDK',    'aws'),
-  edge('beet-fh',   'beethoven', 'firehose',      'AWS SDK',    'stream'),
-  edge('beet-cf',   'beethoven', 'cloudfront',    'Signed URL', 'aws'),
-  edge('beet-sso',  'beethoven', 'sso',           'OIDC/JWKS',  'oidc'),
+  // ── Internal Personal (bypass Kong — same network) ────────────────────
+  edge('beet-bp',     'beethoven',     'billing_proxy', 'REST', 'rest'),
+  edge('beet-notif',  'beethoven',     'notification',  'REST', 'rest'),
+  edge('beet-wurfl',  'beethoven',     'wurfl',         'REST', 'rest'),
+  edge('bo-bp',       'backoffice',    'billing_proxy', 'REST', 'rest'),
+  edge('bo-psl',      'backoffice',    'purchase_sl',   'REST', 'rest'),
 
-  // billing-proxy → MCSS BSS (confirmed: PERSONAL_BILLING_SERVICE_MCSS_URL)
-  edge('bp-mcss', 'billing_proxy', 'mcss', 'SOAP/XML', 'soap'),
+  // ── AWS SDK calls ───────────────────────────────────────────────────────
+  edge('beet-redis',  'beethoven',  'redis',      'Redis',   'redis', false),
+  edge('beet-sqs',    'beethoven',  'sqs',        'AWS SDK', 'aws',   false),
+  edge('beet-fh',     'beethoven',  'firehose',   'AWS SDK', 'aws',   false),
+  edge('beet-cf',     'beethoven',  'cloudfront', 'CDN',     'aws',   false),
+  edge('bo-redis',    'backoffice', 'redis',      'Redis',   'redis', false),
+  edge('bo-cf',       'backoffice', 'cloudfront', 'CDN',     'aws',   false),
+  edge('psl-sqs',     'purchase_sl','sqs',        'AWS SDK', 'aws',   false),
 
-  // purchase-sl → external (confirmed: SOM retry config, Disney retry config, SSO URL)
-  edge('psl-som',   'purchase_sl', 'som',    'REST/JSON'),
-  edge('psl-dis',   'purchase_sl', 'disney', 'REST/JSON'),
-  edge('psl-sso',   'purchase_sl', 'sso',    'OIDC',    'oidc'),
-  edge('psl-sqs',   'purchase_sl', 'sqs',    'AWS SDK',  'aws'),
+  // ── Auth (OIDC) ─────────────────────────────────────────────────────────
+  edge('beet-sso',    'beethoven',  'sso', 'OIDC/JWKS', 'oidc', false),
+  edge('psl-sso',     'purchase_sl','sso', 'OIDC',      'oidc', false),
 
-  // CMSE internal (confirmed: all in same cluster, worker→API pattern)
-  edge('cf-ca',  'cmse_feeder',    'cmse_api', 'REST/JSON'),
-  edge('cs-ca',  'cmse_scheduler', 'cmse_api', 'REST/JSON'),
-  edge('cm-ca',  'cmse_matcher',   'cmse_api', 'REST/JSON'),
+  // ── External BSS ────────────────────────────────────────────────────────
+  edge('bp-mcss',     'billing_proxy', 'mcss',   'SOAP/XML', 'soap', false),
+  edge('psl-som',     'purchase_sl',   'som',    'REST',     'rest'),
+  edge('psl-disney',  'purchase_sl',   'disney', 'REST',     'rest'),
 
-  // CMSE → external partners (confirmed: connector repos)
-  edge('ct-tmdb',  'cmse_tmdb',   'tmdb',   'REST/JSON'),
-  edge('cr-rightv','cmse_rightv', 'rightv', 'REST/JSON'),
+  // ── Management Portal ───────────────────────────────────────────────────
+  edge('portal-kc',   'mgmt_portal', 'keycloak', 'OIDC', 'oidc', false),
 
-  // MIB / DMM internal (confirmed: co-deployed in cmse-mib-fargate cluster)
-  edge('dmm-mib', 'dmm_api',  'mib_cms',  'REST/JSON'),
-  edge('mib-auth','mib_cms',  'mib_auth', 'REST/JWT', 'oidc'),
-  edge('front-mib','mib_front','mib_cms', 'REST/JSON'),
+  // ── CMSE internal ───────────────────────────────────────────────────────
+  edge('cf-ca',   'cmse_feeder',    'cmse_api', 'REST', 'rest'),
+  edge('cs-ca',   'cmse_scheduler', 'cmse_api', 'REST', 'rest'),
+  edge('cm-ca',   'cmse_matcher',   'cmse_api', 'REST', 'rest'),
+  edge('ct-tmdb', 'cmse_tmdb',      'tmdb',     'REST', 'rest'),
+  edge('cr-rv',   'cmse_rightv',    'rightv',   'REST', 'rest'),
+
+  // ── MIB / DMM ───────────────────────────────────────────────────────────
+  edge('dmm-mib',   'dmm_api',   'mib_cms',  'REST',     'rest'),
+  edge('mib-auth',  'mib_cms',   'mib_auth', 'OIDC/JWT', 'oidc', false),
+  edge('front-mib', 'mib_front', 'mib_cms',  'REST',     'rest'),
 ]

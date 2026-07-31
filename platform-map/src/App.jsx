@@ -1,135 +1,162 @@
-import { useCallback, useMemo } from 'react'
+import { useCallback } from 'react'
 import {
-  ReactFlow,
-  Background,
-  Controls,
-  MiniMap,
-  useNodesState,
-  useEdgesState,
-  addEdge,
+  ReactFlow, Background, Controls, MiniMap,
+  useNodesState, useEdgesState, addEdge,
   BackgroundVariant,
 } from '@xyflow/react'
 import { initialNodes, initialEdges, COLORS } from './data.js'
 import GroupNode   from './GroupNode.jsx'
 import ServiceNode from './ServiceNode.jsx'
+import KongNode    from './KongNode.jsx'
 
-const nodeTypes = {
-  groupNode:   GroupNode,
-  serviceNode: ServiceNode,
-}
+const nodeTypes = { groupNode: GroupNode, serviceNode: ServiceNode, kongNode: KongNode }
 
-const LEGEND = [
-  { label: 'Personal Platform',    color: COLORS.personal },
-  { label: 'ITaaS Shared',         color: COLORS.itaas    },
-  { label: 'CMSE Content Pipeline',color: COLORS.cmse     },
-  { label: 'MIB / DMM CMS',        color: COLORS.mib      },
-  { label: 'AWS Managed',          color: COLORS.aws      },
-  { label: 'External BSS/Partner', color: COLORS.ext      },
+const LEGEND_PLATFORMS = [
+  { label: 'Personal Platform',     color: COLORS.personal },
+  { label: 'Kong · API Gateway',    color: COLORS.kong     },
+  { label: 'ITaaS Shared Services', color: COLORS.itaas    },
+  { label: 'CMSE Content Pipeline', color: COLORS.cmse     },
+  { label: 'MIB / DMM CMS',         color: COLORS.mib      },
+  { label: 'AWS Managed',           color: COLORS.aws      },
+  { label: 'External BSS/Partner',  color: COLORS.ext      },
+  { label: 'Management Portal',     color: COLORS.mgmt     },
 ]
 
-const EDGE_LEGEND = [
-  { label: 'REST / JSON',  style: { borderTop: '2px solid #94a3b8' } },
-  { label: 'SOAP / XML',   style: { borderTop: '2px dashed #dc2626' } },
-  { label: 'OIDC / JWT',   style: { borderTop: '2px dashed #7c3aed' } },
-  { label: 'AWS SDK',      style: { borderTop: '2px solid #d97706' } },
+const LEGEND_EDGES = [
+  { label: 'REST / JSON',  color: '#475569', dash: false  },
+  { label: 'via Kong',     color: '#f59e0b', dash: false  },
+  { label: 'SOAP / XML',   color: '#ef4444', dash: true   },
+  { label: 'OIDC / JWT',   color: '#8b5cf6', dash: true   },
+  { label: 'AWS SDK',      color: '#f97316', dash: false  },
 ]
 
 export default function App() {
   const [nodes, , onNodesChange] = useNodesState(initialNodes)
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges)
+  const onConnect = useCallback(p => setEdges(es => addEdge(p, es)), [setEdges])
 
-  const onConnect = useCallback(
-    (params) => setEdges((eds) => addEdge(params, eds)),
-    [setEdges],
-  )
+  const minimapColor = n => COLORS[n.data?.platform] ?? '#1e293b'
 
-  const minimapNodeColor = useCallback((n) => {
-    return COLORS[n.data?.platform] ?? '#cbd5e1'
-  }, [])
+  // Live service count (non-ext, non-group nodes)
+  const liveCount = initialNodes.filter(n => n.type === 'serviceNode' && !['ext'].includes(n.data?.platform)).length
 
   return (
-    <div style={{ width: '100vw', height: '100vh', background: '#f8fafc' }}>
+    <div style={{ width: '100vw', height: '100vh', background: '#07090f' }}>
       <ReactFlow
-        nodes={nodes}
-        edges={edges}
+        nodes={nodes} edges={edges}
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
         nodeTypes={nodeTypes}
-        fitView
-        fitViewOptions={{ padding: 0.12 }}
-        minZoom={0.2}
-        maxZoom={2}
-        defaultEdgeOptions={{ type: 'smoothstep' }}
+        fitView fitViewOptions={{ padding: 0.1 }}
+        minZoom={0.15} maxZoom={2.2}
         proOptions={{ hideAttribution: false }}
       >
-        <Background variant={BackgroundVariant.Dots} gap={20} size={1} color="#e2e8f0" />
-        <Controls style={{ boxShadow: '0 1px 6px rgba(0,0,0,0.1)', borderRadius: 8 }} />
+        <Background
+          variant={BackgroundVariant.Dots}
+          gap={24} size={1}
+          color="rgba(99,102,241,0.12)"
+        />
+        <Controls className="dark-controls" />
         <MiniMap
-          nodeColor={minimapNodeColor}
-          maskColor="rgba(248,250,252,0.7)"
-          style={{ border: '1px solid #e2e8f0', borderRadius: 8 }}
+          nodeColor={minimapColor}
+          maskColor="rgba(7,9,15,0.75)"
+          style={{
+            background: '#0c1020',
+            border: '1px solid rgba(255,255,255,0.07)',
+            borderRadius: 10,
+          }}
         />
       </ReactFlow>
 
-      {/* Header */}
+      {/* ── Header ──────────────────────────────────────────────────────── */}
       <div style={{
-        position: 'absolute', top: 16, left: '50%', transform: 'translateX(-50%)',
-        background: '#ffffff', borderRadius: 10,
-        border: '1px solid #e2e8f0',
-        padding: '8px 20px',
-        boxShadow: '0 1px 6px rgba(0,0,0,0.08)',
+        position: 'absolute', top: 18, left: '50%', transform: 'translateX(-50%)',
+        background: 'rgba(10,14,26,0.9)',
+        backdropFilter: 'blur(20px)',
+        border: '1px solid rgba(255,255,255,0.08)',
+        borderRadius: 12,
+        padding: '10px 24px',
         textAlign: 'center',
         pointerEvents: 'none',
+        boxShadow: '0 4px 32px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.06)',
       }}>
-        <div style={{ fontSize: 13, fontWeight: 600, color: '#0f172a', letterSpacing: '0.02em' }}>
-          AgileTV — Platform Service Map
+        <div style={{ fontSize: 14, fontWeight: 700, color: '#e2e8f0', letterSpacing: '0.04em' }}>
+          AgileTV · Platform Architecture
         </div>
-        <div style={{ fontSize: 10, color: '#94a3b8', marginTop: 2 }}>
-          Confirmed production topology · Drag nodes to rearrange
+        <div style={{ fontSize: 10, color: '#334155', marginTop: 3, letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+          Confirmed production topology
         </div>
       </div>
 
-      {/* Legend */}
+      {/* ── Status bar ──────────────────────────────────────────────────── */}
       <div style={{
-        position: 'absolute', bottom: 16, left: 16,
-        background: '#ffffff',
-        border: '1px solid #e2e8f0',
-        borderRadius: 10,
-        padding: '12px 16px',
-        boxShadow: '0 1px 6px rgba(0,0,0,0.08)',
-        minWidth: 170,
+        position: 'absolute', top: 18, right: 18,
+        background: 'rgba(10,14,26,0.9)',
+        backdropFilter: 'blur(20px)',
+        border: '1px solid rgba(255,255,255,0.07)',
+        borderRadius: 12,
+        padding: '10px 16px',
+        boxShadow: '0 4px 24px rgba(0,0,0,0.4)',
+        display: 'flex', flexDirection: 'column', gap: 5,
       }}>
-        <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#94a3b8', marginBottom: 8 }}>
-          Platform
-        </div>
-        {LEGEND.map(({ label, color }) => (
-          <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 5 }}>
-            <div style={{ width: 10, height: 10, borderRadius: 3, background: color, flexShrink: 0 }} />
-            <span style={{ fontSize: 11, color: '#475569' }}>{label}</span>
+        {[
+          { label: 'ECS Services',  value: `${liveCount} live` },
+          { label: 'AWS Accounts',  value: '469793732550 · 211125718407' },
+          { label: 'Regions',       value: 'us-east-1 · eu-west-1' },
+          { label: 'API Gateway',   value: 'Kong · key-auth + ACL' },
+          { label: 'IAM',           value: 'Keycloak · Telecom SSO · Swordfish' },
+          { label: 'CI/CD',         value: 'Travis CI · TeamCity' },
+        ].map(({ label, value }) => (
+          <div key={label} style={{ display: 'flex', justifyContent: 'space-between', gap: 20 }}>
+            <span style={{ fontSize: 10, color: '#334155', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{label}</span>
+            <span style={{ fontSize: 10, color: '#60a5fa', fontWeight: 600 }}>{value}</span>
           </div>
         ))}
+      </div>
 
-        <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#94a3b8', marginTop: 12, marginBottom: 8 }}>
-          Interface
+      {/* ── Legend ──────────────────────────────────────────────────────── */}
+      <div style={{
+        position: 'absolute', bottom: 18, left: 18,
+        background: 'rgba(10,14,26,0.9)',
+        backdropFilter: 'blur(20px)',
+        border: '1px solid rgba(255,255,255,0.07)',
+        borderRadius: 12,
+        padding: '14px 18px',
+        boxShadow: '0 4px 24px rgba(0,0,0,0.4)',
+        display: 'flex', gap: 28,
+      }}>
+        <div>
+          <div style={{ fontSize: 8, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#1e293b', marginBottom: 9 }}>Platform</div>
+          {LEGEND_PLATFORMS.map(({ label, color }) => (
+            <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 6 }}>
+              <div style={{ width: 8, height: 8, borderRadius: 2, background: color, boxShadow: `0 0 4px ${color}80`, flexShrink: 0 }} />
+              <span style={{ fontSize: 10, color: '#475569' }}>{label}</span>
+            </div>
+          ))}
         </div>
-        {EDGE_LEGEND.map(({ label, style }) => (
-          <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 5 }}>
-            <div style={{ width: 22, height: 0, ...style, flexShrink: 0 }} />
-            <span style={{ fontSize: 11, color: '#475569' }}>{label}</span>
+
+        <div>
+          <div style={{ fontSize: 8, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#1e293b', marginBottom: 9 }}>Interface</div>
+          {LEGEND_EDGES.map(({ label, color, dash }) => (
+            <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 6 }}>
+              <svg width="22" height="6" style={{ flexShrink: 0 }}>
+                <line x1="0" y1="3" x2="22" y2="3" stroke={color} strokeWidth="1.5"
+                  strokeDasharray={dash ? '4 3' : undefined} />
+              </svg>
+              <span style={{ fontSize: 10, color: '#475569' }}>{label}</span>
+            </div>
+          ))}
+          <div style={{ marginTop: 10, borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: 9 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 5 }}>
+              <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#22c55e', boxShadow: '0 0 5px #22c55e', flexShrink: 0 }} />
+              <span style={{ fontSize: 10, color: '#475569' }}>ECS service · running</span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+              <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#f97316', boxShadow: '0 0 5px #f97316', flexShrink: 0 }} />
+              <span style={{ fontSize: 10, color: '#475569' }}>AWS managed resource</span>
+            </div>
           </div>
-        ))}
-
-        <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#94a3b8', marginTop: 12, marginBottom: 6 }}>
-          Node status
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 4 }}>
-          <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#22c55e', display: 'inline-block', flexShrink: 0 }} />
-          <span style={{ fontSize: 11, color: '#475569' }}>ECS service · running</span>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-          <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#f59e0b', display: 'inline-block', flexShrink: 0 }} />
-          <span style={{ fontSize: 11, color: '#475569' }}>AWS managed resource</span>
         </div>
       </div>
     </div>
