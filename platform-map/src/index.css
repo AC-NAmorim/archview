@@ -1,0 +1,17 @@
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: 'Inter', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Tighten React Flow edge labels */
+.react-flow__edge-label {
+  pointer-events: none;
+}
+
+/* Slightly softer handles on hover */
+.react-flow__handle:hover {
+  transform: scale(1.4);
+  transition: transform 0.1s;
+}
